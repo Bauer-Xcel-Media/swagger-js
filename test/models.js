@@ -44,7 +44,8 @@ describe('models', function () {
       properties: {
         id: {
           type: 'integer',
-          format: 'int32'
+          format: 'int32',
+          default: 0
         },
         name: {
           type: 'string'
@@ -55,7 +56,6 @@ describe('models', function () {
       }
     };
     var model = new Model('Sample', definition);
-
     expect(model.createJSONSample()).toEqual({ id: 0, name: 'string', photos: [ {} ] });
   });
 
@@ -478,6 +478,45 @@ describe('models', function () {
         expect(response.createJSONSample()).toEqual([{}]);
         expect(response.getSampleValue()).toEqual([{}]);
         expect(response.getMockSignature()).toEqual('<span class="strong">PetArray [</span><div>object</div><span class="strong">]</span>');
+
+        done();
+      }
+    });
+  });
+
+  it('should handle references to inline primitive definitions (Issue 339)', function (done) {
+    var cPetStore = _.cloneDeep(petstore);
+
+    cPetStore.definitions.ApplicationConfigPatch = {
+      type : 'object',
+      properties : {
+        variantManagement : {
+          $ref : '#/definitions/OperationalState'
+        }
+      }
+    };
+    cPetStore.definitions.OperationalState = {
+      type : 'string',
+      enum : [
+        'Enabled',
+        'Disabled'
+      ]
+    };
+
+    cPetStore.paths['/pet/findByStatus'].get.responses['200'].schema = {
+      $ref: '#/definitions/ApplicationConfigPatch'
+    };
+
+    var client = new SwaggerClient({
+      spec: cPetStore,
+      success: function () {
+        var response = client.pet.operations.findPetsByStatus.successResponse['200'];
+
+        expect(response.createJSONSample()).toEqual({variantManagement: 'Enabled'});
+        expect(response.getSampleValue()).toEqual({variantManagement: 'Enabled'});
+        expect(response.getMockSignature()).toEqual('<span class="strong">ApplicationConfigPatch {</span><div><span class="propWrap"><span class="propName false">variantManagement</span> (<span class="propType">string</span>, <span class="propOptKey">optional</span>) = <span class="propVals">[\'Enabled\' or \'Disabled\']</span><table class="optionsWrapper"><tr><th colspan="2">string</th></tr><tr><td class="optionName">Enum:</td><td>"Enabled", "Disabled"</td></tr></table></span></div><span class="strong">}</span>');
+
+        console.log(response.getMockSignature());
 
         done();
       }
